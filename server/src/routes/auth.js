@@ -2,7 +2,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 
 import User from "../models/User.js";
 import Otp from "../models/Otp.js";
@@ -44,12 +43,13 @@ const publicUser = (user) => ({
 });
 
 // --------------------------------------------------
-// SEND OTP
+// SEND OTP USING RESEND API
 // --------------------------------------------------
 
 async function sendOtp(email, purpose, payload = null) {
-    if (!config.smtpUser || !config.smtpPass) {
-        throw new Error("Gmail SMTP is not configured.");
+
+    if (!config.resendApiKey) {
+        throw new Error("Resend API key is not configured.");
     }
 
     const code = String(
@@ -68,22 +68,45 @@ async function sendOtp(email, purpose, payload = null) {
         )
     });
 
-    const mail = nodemailer.createTransport({
-        host: config.smtpHost,
-        port: config.smtpPort,
-        secure: config.smtpPort === 465,
-        auth: {
-            user: config.smtpUser,
-            pass: config.smtpPass
-        }
-    });
+    try {
 
-    await mail.sendMail({
-        from: `ActVerse <${config.smtpUser}>`,
-        to: email,
-        subject: "Your ActVerse verification code",
-        text: `Your verification code is ${code}. It expires in ${config.otpExpiryMinutes} minutes. Do not share it.`
-    });
+        const response = await fetch(
+            "https://api.resend.com/emails",
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${config.resendApiKey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    from: `ActVerse <${config.emailFrom}>`,
+                    to: [email],
+                    subject: "Your ActVerse verification code",
+                    text: `Your verification code is ${code}. It expires in ${config.otpExpiryMinutes} minutes. Do not share it.`
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            console.error("Resend email error:", result);
+
+            throw new Error(
+                result.message || "Unable to send verification email."
+            );
+        }
+
+        console.log("OTP email sent successfully:", email);
+
+    } catch (error) {
+
+        await Otp.deleteMany({ email, purpose });
+
+        console.error("OTP email sending failed:", error);
+
+        throw error;
+    }
 }
 
 // --------------------------------------------------
@@ -91,6 +114,7 @@ async function sendOtp(email, purpose, payload = null) {
 // --------------------------------------------------
 
 async function verifyOtp(email, purpose, code) {
+
     const otp = await Otp.findOne({ email, purpose });
 
     if (
@@ -129,7 +153,9 @@ async function verifyOtp(email, purpose, code) {
 // --------------------------------------------------
 
 router.post("/register", async (req, res, next) => {
+
     try {
+
         const username = String(
             req.body.username || ""
         ).trim();
@@ -142,8 +168,6 @@ router.post("/register", async (req, res, next) => {
             req.body.password || ""
         );
 
-        // Accept accountType from frontend.
-        // Also accept requestedRole or role for compatibility.
         const requestedRole = String(
             req.body.accountType ||
             req.body.requestedRole ||
@@ -186,6 +210,7 @@ router.post("/register", async (req, res, next) => {
             email,
             requestedRole
         });
+
     } catch (error) {
         next(error);
     }
@@ -198,7 +223,9 @@ router.post("/register", async (req, res, next) => {
 router.post(
     "/register/verify",
     async (req, res, next) => {
+
         try {
+
             const email = String(
                 req.body.email || ""
             ).trim().toLowerCase();
@@ -257,6 +284,7 @@ router.post(
                 token: tokenFor(user),
                 user: publicUser(user)
             });
+
         } catch (error) {
             next(error);
         }
@@ -268,7 +296,9 @@ router.post(
 // --------------------------------------------------
 
 router.post("/login", async (req, res, next) => {
+
     try {
+
         const email = String(
             req.body.email || ""
         ).trim().toLowerCase();
@@ -304,6 +334,7 @@ router.post("/login", async (req, res, next) => {
             token: tokenFor(user),
             user: publicUser(user)
         });
+
     } catch (error) {
         next(error);
     }
@@ -314,6 +345,7 @@ router.post("/login", async (req, res, next) => {
 // --------------------------------------------------
 
 router.get("/me", requireAuth, async (req, res) => {
+
     const user = await User.findById(req.user._id);
 
     res.json({
@@ -329,7 +361,9 @@ router.post(
     "/influencer/request",
     requireAuth,
     async (req, res, next) => {
+
         try {
+
             const user = await User.findById(req.user._id);
 
             if (!user) {
@@ -359,6 +393,7 @@ router.post(
                 message: "Influencer application submitted for admin approval.",
                 user: publicUser(user)
             });
+
         } catch (error) {
             next(error);
         }
@@ -374,7 +409,9 @@ router.get(
     requireAuth,
     requireAdmin,
     async (req, res, next) => {
+
         try {
+
             const users = await User.find({
                 influencerStatus: "pending"
             })
@@ -386,6 +423,7 @@ router.get(
             res.json({
                 applications: users
             });
+
         } catch (error) {
             next(error);
         }
@@ -401,7 +439,9 @@ router.post(
     requireAuth,
     requireAdmin,
     async (req, res, next) => {
+
         try {
+
             if (!/^[a-f\d]{24}$/i.test(req.params.id)) {
                 return res.status(400).json({
                     message: "Invalid user ID."
@@ -430,6 +470,7 @@ router.post(
                 message: "Influencer approved successfully.",
                 user: publicUser(user)
             });
+
         } catch (error) {
             next(error);
         }
@@ -445,7 +486,9 @@ router.post(
     requireAuth,
     requireAdmin,
     async (req, res, next) => {
+
         try {
+
             if (!/^[a-f\d]{24}$/i.test(req.params.id)) {
                 return res.status(400).json({
                     message: "Invalid user ID."
@@ -472,6 +515,7 @@ router.post(
                 message: "Influencer application rejected.",
                 user: publicUser(user)
             });
+
         } catch (error) {
             next(error);
         }
@@ -486,7 +530,9 @@ router.post(
     "/accept-rules",
     requireAuth,
     async (req, res, next) => {
+
         try {
+
             const user = await User.findById(req.user._id);
 
             user.acceptedRulesVersion = config.rulesVersion;
@@ -498,6 +544,7 @@ router.post(
                 user: publicUser(user),
                 rulesVersion: config.rulesVersion
             });
+
         } catch (error) {
             next(error);
         }
@@ -512,7 +559,9 @@ router.patch(
     "/language",
     requireAuth,
     async (req, res, next) => {
+
         try {
+
             if (!["en", "ta"].includes(req.body.language)) {
                 return res.status(400).json({
                     message: "Unsupported language."
@@ -530,6 +579,7 @@ router.patch(
             res.json({
                 user: publicUser(user)
             });
+
         } catch (error) {
             next(error);
         }
