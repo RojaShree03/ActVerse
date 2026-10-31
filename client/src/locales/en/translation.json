@@ -1,0 +1,15 @@
+{
+  "home":"Home","rules":"Rules","portfolio":"Creator Portfolio","login":"Login","register":"Register",
+  "getStarted":"Get Started","watchHow":"Watch How It Works","tagline1":"Your Dialogue.","tagline2":"My Performance.","tagline3":"Your Verdict.",
+  "heroCopy":"A fan-powered acting challenge platform. Give a dialogue, watch it come to life, and decide PASS or FAIL.",
+  "welcome":"Welcome to ActVerse","rulesTitle":"Rules & Regulations","rulesIntro":"Please read the rules before entering the game.",
+  "acceptRules":"I have read and agree to the Rules & Regulations","continue":"Continue","language":"Language",
+  "loginTitle":"Welcome Back","registerTitle":"Create Your Account","username":"Username","email":"Email","password":"Password","confirmPassword":"Confirm password",
+  "submit":"Submit","logout":"Log out","dashboard":"Dashboard","explore":"Explore","submitDialogue":"Submit Dialogue","myActivity":"My Activity",
+  "dialoguePlaceholder":"Enter your dialogue here...","selectEmotion":"Select emotion (only you know)","happy":"Happy","sad":"Sad","angry":"Angry","joyful":"Joyful","romantic":"Romantic","motivational":"Motivational","other":"Other",
+  "activeChallenges":"Active Challenges","allDialogues":"All Dialogues","mySubmissions":"My Submissions","enterCode":"Enter access code","unlock":"Unlock & View",
+  "watchInstagram":"Watch on Instagram","pass":"PASS","fail":"FAIL","feedback":"Share your feedback (optional)","submitVote":"Submit Vote",
+  "creatorDashboard":"Creator Dashboard","adminDashboard":"Admin Dashboard","registeredMembers":"Registered Members","activeUsers":"Active Users","totalDialogues":"Total Dialogues","totalVotes":"Total Votes",
+  "leaderboard":"Leaderboard","score":"Score","completedTasks":"Completed Tasks","portfolioIntro":"Creator, actor and storyteller","featured":"Featured Performances",
+  "bio":"Welcome to my world. ActVerse is where fans bring dialogue ideas to life.","rulesAccepted":"Rules accepted. Welcome to ActVerse!","noChallenges":"No active challenges yet.","loading":"Loading…","error":"Something went wrong."
+}
