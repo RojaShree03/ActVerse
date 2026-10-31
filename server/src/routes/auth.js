@@ -2,6 +2,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 
 import User from "../models/User.js";
 import Otp from "../models/Otp.js";
@@ -15,6 +16,25 @@ import {
 } from "../middleware/auth.js";
 
 const router = Router();
+
+// --------------------------------------------------
+// GMAIL SMTP TRANSPORTER
+// --------------------------------------------------
+
+const transporter = nodemailer.createTransport({
+    host: config.smtpHost,
+    port: config.smtpPort,
+    secure: config.smtpSecure,
+
+    auth: {
+        user: config.smtpUser,
+        pass: config.smtpPass
+    },
+
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000
+});
 
 // --------------------------------------------------
 // JWT TOKEN
@@ -43,13 +63,13 @@ const publicUser = (user) => ({
 });
 
 // --------------------------------------------------
-// SEND OTP USING RESEND API
+// SEND OTP USING GMAIL SMTP
 // --------------------------------------------------
 
 async function sendOtp(email, purpose, payload = null) {
 
-    if (!config.resendApiKey) {
-        throw new Error("Resend API key is not configured.");
+    if (!config.smtpUser || !config.smtpPass) {
+        throw new Error("Gmail SMTP credentials are not configured.");
     }
 
     const code = String(
@@ -70,32 +90,54 @@ async function sendOtp(email, purpose, payload = null) {
 
     try {
 
-        const response = await fetch(
-            "https://api.resend.com/emails",
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${config.resendApiKey}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    from: `ActVerse <${config.emailFrom}>`,
-                    to: [email],
-                    subject: "Your ActVerse verification code",
-                    text: `Your verification code is ${code}. It expires in ${config.otpExpiryMinutes} minutes. Do not share it.`
-                })
-            }
-        );
+        await transporter.sendMail({
+            from: `"ActVerse" <${config.smtpUser}>`,
+            to: email,
+            subject: "Your ActVerse verification code",
 
-        const result = await response.json();
+            text: `
+Hello,
 
-        if (!response.ok) {
-            console.error("Resend email error:", result);
+Your ActVerse verification code is:
 
-            throw new Error(
-                result.message || "Unable to send verification email."
-            );
-        }
+${code}
+
+This OTP expires in ${config.otpExpiryMinutes} minutes.
+
+Please do not share this code with anyone.
+
+Thank you,
+ActVerse Team
+            `.trim(),
+
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 25px; border: 1px solid #eeeeee; border-radius: 12px;">
+                    <h2 style="color: #c62828;">ActVerse</h2>
+
+                    <p>Hello,</p>
+
+                    <p>Your verification code is:</p>
+
+                    <h1 style="letter-spacing: 8px; color: #c62828; text-align: center;">
+                        ${code}
+                    </h1>
+
+                    <p>This OTP expires in
+                    <strong>${config.otpExpiryMinutes} minutes</strong>.</p>
+
+                    <p style="color: #777;">
+                        Please do not share this code with anyone.
+                    </p>
+
+                    <hr>
+
+                    <p style="color: #999; font-size: 12px;">
+                        Thank you,<br>
+                        ActVerse Team
+                    </p>
+                </div>
+            `
+        });
 
         console.log("OTP email sent successfully:", email);
 
@@ -103,7 +145,7 @@ async function sendOtp(email, purpose, payload = null) {
 
         await Otp.deleteMany({ email, purpose });
 
-        console.error("OTP email sending failed:", error);
+        console.error("SMTP email sending failed:", error);
 
         throw error;
     }

@@ -4,17 +4,22 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const config = {
+    // Server configuration
     port: Number(process.env.PORT || 5000),
 
+    // MongoDB configuration
     mongoUri:
         process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/actverse",
 
+    // JWT configuration
     jwtSecret:
         process.env.JWT_SECRET || "development-only-change-me",
 
+    // Frontend URL
     clientOrigin:
         process.env.CLIENT_ORIGIN || "http://localhost:5173",
 
+    // Admin configuration
     adminEmail:
         (process.env.ADMIN_EMAIL || "admin@example.com").toLowerCase(),
 
@@ -24,12 +29,27 @@ export const config = {
     adminName:
         process.env.ADMIN_NAME || "RojaShree",
 
+    // Rules configuration
     rulesVersion:
         process.env.RULES_VERSION || "1.0",
 
-    // Resend email API
-    resendApiKey: process.env.RESEND_API_KEY || "",
-    emailFrom: process.env.EMAIL_FROM || "onboarding@resend.dev",
+    // Gmail SMTP configuration
+    smtpHost:
+        process.env.SMTP_HOST || "smtp.gmail.com",
 
-    otpExpiryMinutes: Number(process.env.OTP_EXPIRY_MINUTES || 10)
+    smtpPort:
+        Number(process.env.SMTP_PORT || 465),
+
+    smtpUser:
+        process.env.SMTP_USER || "",
+
+    smtpPass:
+        process.env.SMTP_PASS || "",
+
+    smtpSecure:
+        Number(process.env.SMTP_PORT || 465) === 465,
+
+    // OTP configuration
+    otpExpiryMinutes:
+        Number(process.env.OTP_EXPIRY_MINUTES || 10)
 };
