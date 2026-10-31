@@ -1,50 +1,275 @@
-# ActVerse — MERN Challenge Platform
+# ActVerse 🎬
 
-ActVerse is a bilingual (English/Tamil) fan-powered dialogue and acting challenge platform built with React + Vite, Node.js, Express and MongoDB.
+**ActVerse** is a fan-powered acting challenge platform where fans submit dialogue challenges, influencers perform accepted challenges, and the community votes on the performances.
 
-## Included
-- Public home, challenge dashboard, rules, leaderboard and creator portfolio
-- Vijay Surya portfolio profile image and Instagram / YouTube / Facebook links
-- Registered users can submit dialogue challenges and choose a private emotion
-- Admin (seeded from environment) activates submissions and publishes Instagram post links with access codes
-- Public visitors can unlock a challenge with its code to reveal the emotion and Instagram link
-- Public PASS / FAIL voting; one vote per browser identity per challenge
-- Admin overview and moderation queue
-- Email OTP for both registration and login through Gmail SMTP
-- English/Tamil UI dictionaries and responsive black + muted-red theme
-- Five-day challenge expiry and automatic deletion of challenge/vote records; score summaries and accounts persist
+- **Live website:** https://act-verse.vercel.app/
+- **Backend API:** https://actverse-backend.onrender.com
+- **GitHub repository:** https://github.com/RojaShree03/ActVerse
+
+## About the Project
+
+ActVerse connects fans and performers through acting challenges. Fans can submit dialogues with a secret emotion, an approved influencer can accept a challenge and publish an Instagram performance link, and visitors can reveal the emotion and vote **PASS** or **FAIL**.
+
+The application is built using the MERN stack.
+
+## Tech Stack
+
+### Frontend
+- React
+- Vite
+- JavaScript
+- CSS
+
+### Backend
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JWT authentication
+- bcryptjs
+- Nodemailer for email OTP
+
+### Deployment
+- Vercel – frontend hosting
+- Render – backend hosting
+- MongoDB Atlas – cloud database
+
+## Main Features
+
+### Public Visitors
+- Browse available and completed challenges.
+- View published Instagram performance links.
+- Reveal a challenge's secret emotion using its reveal password.
+- Vote PASS or FAIL after revealing the emotion.
+
+### Fan Account
+- Register with email OTP verification.
+- Log in to the platform.
+- Submit dialogue challenges.
+- Select a secret emotion and configure a reveal password.
+- View personal challenge submissions.
+
+### Influencer Account
+- Apply for an influencer account.
+- Wait for administrator approval.
+- Browse available challenges after approval.
+- Accept an available challenge.
+- Publish the Instagram URL for the accepted challenge.
+
+### Administrator
+- Review pending influencer applications.
+- Approve or reject influencer applications.
+- View and manage platform challenges.
+- Monitor platform activity and voting.
+
+## Challenge Workflow
+
+1. A fan registers and verifies their email address.
+2. The fan submits a dialogue, selects an emotion, and sets a reveal password.
+3. The challenge becomes available for an approved influencer.
+4. An approved influencer accepts the challenge.
+5. The influencer performs the dialogue and publishes the performance on Instagram.
+6. The influencer adds the Instagram URL to the challenge in ActVerse.
+7. Visitors enter the reveal password to view the secret emotion.
+8. Visitors vote PASS or FAIL.
+
+> The platform stores a hashed reveal password. The reveal password should be shared separately with the intended audience. Performance videos are hosted on Instagram; ActVerse stores the external link.
+
+## Project Structure
+
+```text
+ActVerse/
+├── client/                 # React + Vite frontend
+│   ├── public/
+│   ├── src/
+│   ├── package.json
+│   └── ...
+├── server/                 # Node.js + Express backend
+│   ├── src/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── middleware/
+│   │   └── server.js
+│   ├── package.json
+│   └── ...
+├── .gitignore
+└── README.md
+```
+
+*Some filenames may differ depending on the current project version.*
 
 ## Requirements
-Node.js 20+, npm, MongoDB (local or Atlas), and Gmail SMTP App Password.
 
-## Local setup
-1. Extract the ZIP and open the `ActVerse` folder.
-2. Run `npm run install:all`.
-3. Copy `server/.env.example` to `server/.env`.
-4. Set `MONGODB_URI`, a long random `JWT_SECRET`, admin credentials, and Gmail SMTP settings.
-5. Start both apps with `npm run dev`.
-6. Open http://localhost:5173.
+- Node.js (LTS version recommended)
+- npm
+- MongoDB local installation or a MongoDB Atlas account
+- Git
 
-## Gmail OTP setup
-- Use the configured Gmail account `middleclassvijaysurya13@gmail.com` as `SMTP_USER`.
-- Enable 2-Step Verification on that Google account and generate a Google App Password.
-- Put the 16-character App Password in `SMTP_PASS`. Do not use the normal Gmail password and do not commit `.env`.
-- OTPs expire after 10 minutes by default and are limited to five verification attempts.
+## Run Locally
 
-## Admin setup
-Set `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME=RojaShree` in `server/.env`. The server creates the admin account on first startup if it does not exist. Use a strong unique password. Public registration never grants the admin role.
+### 1. Clone the repository
 
-## Access model
-- Public: browse the dashboard, view published challenges, unlock with challenge code, see leaderboard, vote PASS/FAIL, view portfolio and rules.
-- Account required: register/login (both OTP verified), accept current rules, submit a dialogue challenge, see personal submissions.
-- Admin: manage pending submissions, activate challenges, publish Instagram URLs and access codes, view overview statistics.
+```bash
+git clone https://github.com/RojaShree03/ActVerse.git
+cd ActVerse
+```
 
-## Challenge retention
-The activation clock is five days, matching the supplied server implementation and current rules page. When expired, challenge and associated vote records are deleted by the hourly cleanup job. Accounts and cumulative score summaries remain. Change this duration only after confirming the product requirement and updating the rules text together.
+### 2. Install dependencies
 
-## Notes / production checklist
-- Instagram/YouTube URLs are external links; this project does not upload or host video files.
-- Anonymous vote uniqueness is browser-based; clearing browser storage or using another browser/device can create another voting identity. For stronger anti-abuse protection, add CAPTCHA and server-side rate controls.
-- Set production `CLIENT_ORIGIN`, HTTPS, strong secrets, backups, monitoring and database access controls before public launch.
-- The translation preview endpoint remains an unconfigured 501 placeholder.
-- Review Terms, Privacy Policy, retention wording and consent before launch.
+From the project root:
+
+```bash
+npm run install:all
+```
+
+If the root install script is not available in your checkout, install each application separately:
+
+```bash
+cd server
+npm install
+cd ../client
+npm install
+cd ..
+```
+
+### 3. Configure backend environment variables
+
+Create a `.env` file inside the `server/` directory:
+
+```env
+PORT=5000
+MONGODB_URI=your_mongodb_atlas_connection_string
+JWT_SECRET=your_long_random_secret
+CLIENT_ORIGIN=http://localhost:5173
+
+ADMIN_EMAIL=your_admin_email
+ADMIN_PASSWORD=your_admin_password
+ADMIN_NAME=RojaShree
+
+RULES_VERSION=1.0
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_gmail_address
+SMTP_PASS=your_gmail_app_password
+
+OTP_EXPIRY_MINUTES=10
+```
+
+Replace the example values with your own configuration. For Gmail SMTP, use a **Google App Password** where required, not your normal Gmail account password.
+
+### 4. Configure frontend environment variables
+
+Create a `.env` file inside `client/`:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+The frontend should use this variable as its backend API base URL.
+
+### 5. Start the application
+
+From the project root, if the root development script is configured:
+
+```bash
+npm run dev
+```
+
+Otherwise, start the backend and frontend in two separate terminals.
+
+**Terminal 1 – Backend**
+
+```bash
+cd server
+npm run dev
+```
+
+**Terminal 2 – Frontend**
+
+```bash
+cd client
+npm run dev
+```
+
+Open the Vite development URL shown in the terminal, usually `http://localhost:5173`.
+
+## Production Environment
+
+| Component | Hosting |
+|---|---|
+| Frontend | Vercel |
+| Backend | Render |
+| Database | MongoDB Atlas |
+
+### Render backend environment variables
+
+Configure these in Render's environment-variable settings. Do not commit real secrets to GitHub.
+
+```env
+PORT=5000
+MONGODB_URI=your_mongodb_atlas_connection_string
+JWT_SECRET=your_long_random_secret
+CLIENT_ORIGIN=https://act-verse.vercel.app
+
+ADMIN_EMAIL=your_admin_email
+ADMIN_PASSWORD=your_admin_password
+ADMIN_NAME=RojaShree
+
+RULES_VERSION=1.0
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_gmail_address
+SMTP_PASS=your_gmail_app_password
+
+OTP_EXPIRY_MINUTES=10
+```
+
+### Vercel frontend environment variable
+
+```env
+VITE_API_URL=https://actverse-backend.onrender.com
+```
+
+After changing frontend environment variables in Vercel, redeploy the frontend so the new values are included in the build.
+
+> Render free web services may spin down after inactivity. The first request after a period of inactivity can take longer to respond.
+
+## Security Notes
+
+- Never upload `.env` files, database credentials, JWT secrets, or email app passwords to GitHub.
+- Use strong passwords for MongoDB database users and administrator accounts.
+- Use a unique, long `JWT_SECRET`.
+- Restrict MongoDB Atlas network access as appropriate for your deployment.
+- Keep dependencies updated and review security advisories.
+- Do not share private challenge reveal passwords publicly unless intended.
+
+## Testing Checklist
+
+- [ ] Open the live website.
+- [ ] Register a fan account.
+- [ ] Receive and verify the email OTP.
+- [ ] Log in successfully.
+- [ ] Submit a dialogue challenge.
+- [ ] Apply for an influencer account.
+- [ ] Approve the influencer account as administrator.
+- [ ] Accept an available challenge as the approved influencer.
+- [ ] Publish an Instagram performance URL.
+- [ ] Reveal the challenge emotion using the reveal password.
+- [ ] Submit PASS or FAIL votes.
+- [ ] Check the dashboard and leaderboard.
+
+## Project Links
+
+- **Website:** https://act-verse.vercel.app/
+- **Backend:** https://actverse-backend.onrender.com
+- **GitHub:** https://github.com/RojaShree03/ActVerse
+
+## Project Creator
+
+**Created by:** RojaShree
+
+---
+
+⭐ If you find this project useful, consider giving the repository a star on GitHub.
