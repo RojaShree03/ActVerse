@@ -2,10 +2,8 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 
 import User from "../models/User.js";
-import Otp from "../models/Otp.js";
 import LoginEvent from "../models/LoginEvent.js";
 
 import { config } from "../config.js";
@@ -16,25 +14,6 @@ import {
 } from "../middleware/auth.js";
 
 const router = Router();
-
-// --------------------------------------------------
-// GMAIL SMTP TRANSPORTER
-// --------------------------------------------------
-
-const transporter = nodemailer.createTransport({
-    host: config.smtpHost,
-    port: config.smtpPort,
-    secure: config.smtpSecure,
-
-    auth: {
-        user: config.smtpUser,
-        pass: config.smtpPass
-    },
-
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000
-});
 
 // --------------------------------------------------
 // JWT TOKEN
@@ -63,135 +42,8 @@ const publicUser = (user) => ({
 });
 
 // --------------------------------------------------
-// SEND OTP USING GMAIL SMTP
-// --------------------------------------------------
-
-async function sendOtp(email, purpose, payload = null) {
-
-    if (!config.smtpUser || !config.smtpPass) {
-        throw new Error("Gmail SMTP credentials are not configured.");
-    }
-
-    const code = String(
-        Math.floor(100000 + Math.random() * 900000)
-    );
-
-    await Otp.deleteMany({ email, purpose });
-
-    await Otp.create({
-        email,
-        purpose,
-        codeHash: await bcrypt.hash(code, 10),
-        payload,
-        expiresAt: new Date(
-            Date.now() + config.otpExpiryMinutes * 60000
-        )
-    });
-
-    try {
-
-        await transporter.sendMail({
-            from: `"ActVerse" <${config.smtpUser}>`,
-            to: email,
-            subject: "Your ActVerse verification code",
-
-            text: `
-Hello,
-
-Your ActVerse verification code is:
-
-${code}
-
-This OTP expires in ${config.otpExpiryMinutes} minutes.
-
-Please do not share this code with anyone.
-
-Thank you,
-ActVerse Team
-            `.trim(),
-
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 25px; border: 1px solid #eeeeee; border-radius: 12px;">
-                    <h2 style="color: #c62828;">ActVerse</h2>
-
-                    <p>Hello,</p>
-
-                    <p>Your verification code is:</p>
-
-                    <h1 style="letter-spacing: 8px; color: #c62828; text-align: center;">
-                        ${code}
-                    </h1>
-
-                    <p>This OTP expires in
-                    <strong>${config.otpExpiryMinutes} minutes</strong>.</p>
-
-                    <p style="color: #777;">
-                        Please do not share this code with anyone.
-                    </p>
-
-                    <hr>
-
-                    <p style="color: #999; font-size: 12px;">
-                        Thank you,<br>
-                        ActVerse Team
-                    </p>
-                </div>
-            `
-        });
-
-        console.log("OTP email sent successfully:", email);
-
-    } catch (error) {
-
-        await Otp.deleteMany({ email, purpose });
-
-        console.error("SMTP email sending failed:", error);
-
-        throw error;
-    }
-}
-
-// --------------------------------------------------
-// VERIFY OTP
-// --------------------------------------------------
-
-async function verifyOtp(email, purpose, code) {
-
-    const otp = await Otp.findOne({ email, purpose });
-
-    if (
-        !otp ||
-        otp.expiresAt < new Date() ||
-        otp.attempts >= 5
-    ) {
-        return {
-            error: "OTP expired. Please try again."
-        };
-    }
-
-    if (
-        !(await bcrypt.compare(
-            String(code || ""),
-            otp.codeHash
-        ))
-    ) {
-        otp.attempts++;
-        await otp.save();
-
-        return {
-            error: "Incorrect OTP."
-        };
-    }
-
-    await Otp.deleteMany({ email, purpose });
-
-    return { otp };
-}
-
-// --------------------------------------------------
 // 1. REGISTER
-// Fan or Influencer registration
-// OTP required
+// Direct registration without OTP
 // --------------------------------------------------
 
 router.post("/register", async (req, res, next) => {
@@ -217,12 +69,14 @@ router.post("/register", async (req, res, next) => {
             "fan"
         ).toLowerCase();
 
+        // Validate account type
         if (!["fan", "influencer"].includes(requestedRole)) {
             return res.status(400).json({
                 message: "Invalid registration type."
             });
         }
 
+        // Validate input
         if (
             username.length < 2 ||
             username.length > 30 ||
@@ -235,22 +89,52 @@ router.post("/register", async (req, res, next) => {
             });
         }
 
+        // Check existing email
         if (await User.exists({ email })) {
             return res.status(409).json({
                 message: "Email already registered."
             });
         }
 
-        await sendOtp(email, "register", {
+        // Hash password
+        const passwordHash = await bcrypt.hash(password, 12);
+
+        // Create user directly without OTP
+        const user = await User.create({
+
             username,
-            passwordHash: await bcrypt.hash(password, 12),
-            requestedRole
+            email,
+            passwordHash,
+
+            // Email verification is not required
+            emailVerified: true,
+
+            // Influencers need admin approval
+            role: "fan",
+
+            influencerStatus:
+                requestedRole === "influencer"
+                    ? "pending"
+                    : "not_requested",
+
+            influencerRequestedAt:
+                requestedRole === "influencer"
+                    ? new Date()
+                    : null
         });
 
-        res.json({
-            message: "OTP sent to your email.",
-            email,
-            requestedRole
+        // Generate JWT token
+        res.status(201).json({
+
+            message:
+                requestedRole === "influencer"
+                    ? "Registration successful. Your influencer application is pending admin approval."
+                    : "Fan registration successful.",
+
+            token: tokenFor(user),
+
+            user: publicUser(user)
+
         });
 
     } catch (error) {
@@ -259,82 +143,8 @@ router.post("/register", async (req, res, next) => {
 });
 
 // --------------------------------------------------
-// 2. REGISTER OTP VERIFICATION
-// --------------------------------------------------
-
-router.post(
-    "/register/verify",
-    async (req, res, next) => {
-
-        try {
-
-            const email = String(
-                req.body.email || ""
-            ).trim().toLowerCase();
-
-            const verification = await verifyOtp(
-                email,
-                "register",
-                req.body.otp
-            );
-
-            if (verification.error) {
-                return res.status(400).json({
-                    message: verification.error
-                });
-            }
-
-            if (await User.exists({ email })) {
-                return res.status(409).json({
-                    message: "Email already registered."
-                });
-            }
-
-            const payload = verification.otp.payload || {};
-
-            const requestedRole =
-                payload.requestedRole === "influencer"
-                    ? "influencer"
-                    : "fan";
-
-            // Influencer applicants remain fans until approval.
-            const user = await User.create({
-                username: payload.username,
-                email,
-                passwordHash: payload.passwordHash,
-                emailVerified: true,
-
-                role: "fan",
-
-                influencerStatus:
-                    requestedRole === "influencer"
-                        ? "pending"
-                        : "not_requested",
-
-                influencerRequestedAt:
-                    requestedRole === "influencer"
-                        ? new Date()
-                        : null
-            });
-
-            res.status(201).json({
-                message:
-                    requestedRole === "influencer"
-                        ? "Registration successful. Your influencer application is pending admin approval."
-                        : "Fan registration successful.",
-
-                token: tokenFor(user),
-                user: publicUser(user)
-            });
-
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-// --------------------------------------------------
-// 3. LOGIN
+// 2. LOGIN
+// Email and Password
 // --------------------------------------------------
 
 router.post("/login", async (req, res, next) => {
@@ -364,17 +174,24 @@ router.post("/login", async (req, res, next) => {
             });
         }
 
+        // Update last login
         user.lastLoginAt = new Date();
+
         await user.save();
 
+        // Record login event
         await LoginEvent.create({
             userId: user._id
         });
 
         res.json({
+
             message: "Login successful.",
+
             token: tokenFor(user),
+
             user: publicUser(user)
+
         });
 
     } catch (error) {
@@ -383,7 +200,7 @@ router.post("/login", async (req, res, next) => {
 });
 
 // --------------------------------------------------
-// 4. CURRENT USER
+// 3. CURRENT USER
 // --------------------------------------------------
 
 router.get("/me", requireAuth, async (req, res) => {
@@ -396,7 +213,7 @@ router.get("/me", requireAuth, async (req, res) => {
 });
 
 // --------------------------------------------------
-// 5. EXISTING FAN REQUESTS INFLUENCER ROLE
+// 4. EXISTING FAN REQUESTS INFLUENCER ROLE
 // --------------------------------------------------
 
 router.post(
@@ -443,7 +260,7 @@ router.post(
 );
 
 // --------------------------------------------------
-// 6. ADMIN - VIEW PENDING INFLUENCER APPLICATIONS
+// 5. ADMIN - VIEW PENDING INFLUENCER APPLICATIONS
 // --------------------------------------------------
 
 router.get(
@@ -473,7 +290,7 @@ router.get(
 );
 
 // --------------------------------------------------
-// 7. ADMIN - APPROVE INFLUENCER
+// 6. ADMIN - APPROVE INFLUENCER
 // --------------------------------------------------
 
 router.post(
@@ -520,7 +337,7 @@ router.post(
 );
 
 // --------------------------------------------------
-// 8. ADMIN - REJECT INFLUENCER
+// 7. ADMIN - REJECT INFLUENCER
 // --------------------------------------------------
 
 router.post(
@@ -565,7 +382,7 @@ router.post(
 );
 
 // --------------------------------------------------
-// 9. ACCEPT RULES
+// 8. ACCEPT RULES
 // --------------------------------------------------
 
 router.post(
@@ -594,7 +411,7 @@ router.post(
 );
 
 // --------------------------------------------------
-// 10. CHANGE LANGUAGE
+// 9. CHANGE LANGUAGE
 // --------------------------------------------------
 
 router.patch(

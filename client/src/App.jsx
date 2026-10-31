@@ -83,12 +83,9 @@ function AuthPage({ mode, onAuth }) {
     accountType: "fan"
   });
 
-  const [otp, setOtp] = useState("");
-  const [stage, setStage] = useState("credentials");
   const [error, setError] = useState("");
   const [infoMessage] = useState(location.state?.message || "");
   const [busy, setBusy] = useState(false);
-
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -96,11 +93,16 @@ function AuthPage({ mode, onAuth }) {
     e.preventDefault();
     setError("");
 
-    if (
-      mode === "register" &&
-      form.password !== form.confirmPassword
-    ) {
-      return setError("Passwords do not match.");
+    if (mode === "register") {
+      if (form.password !== form.confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+
+      if (form.password.length < 8) {
+        setError("Password must contain at least 8 characters.");
+        return;
+      }
     }
 
     setBusy(true);
@@ -108,47 +110,22 @@ function AuthPage({ mode, onAuth }) {
     try {
       const result = await api(`/auth/${mode}`, {
         method: "POST",
-        body: JSON.stringify(form)
+        body: JSON.stringify(
+          mode === "register"
+            ? {
+              username: form.username,
+              email: form.email,
+              password: form.password,
+              accountType: form.accountType
+            }
+            : {
+              email: form.email,
+              password: form.password
+            }
+        )
       });
 
-      // LOGIN: Direct login without OTP
-      if (mode === "login") {
-        saveSession(result);
-        onAuth(result.user);
-
-        nav(
-          result.user.acceptedRulesVersion
-            ? "/game"
-            : "/rules/accept"
-        );
-
-        return;
-      }
-
-      // REGISTER: Email OTP verification required
-      setStage("otp");
-
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verify(e) {
-    e.preventDefault();
-    setError("");
-    setBusy(true);
-
-    try {
-      const result = await api("/auth/register/verify", {
-        method: "POST",
-        body: JSON.stringify({
-          email: form.email,
-          otp
-        })
-      });
-
+      // Both login and registration now complete directly without OTP.
       saveSession(result);
       onAuth(result.user);
 
@@ -157,9 +134,8 @@ function AuthPage({ mode, onAuth }) {
           ? "/game"
           : "/rules/accept"
       );
-
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -168,7 +144,6 @@ function AuthPage({ mode, onAuth }) {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-
         <div className="auth-mark">
           <Clapperboard size={30} />
         </div>
@@ -176,237 +151,160 @@ function AuthPage({ mode, onAuth }) {
         <span className="eyebrow">WELCOME TO ACTVERSE</span>
 
         <h1>
-          {stage === "otp"
-            ? "Verify your email"
-            : mode === "login"
-              ? t("loginTitle")
-              : t("registerTitle")}
+          {mode === "login" ? t("loginTitle") : t("registerTitle")}
         </h1>
 
-        {infoMessage && <div className="notice global-message">{infoMessage}</div>}
+        {infoMessage && (
+          <div className="notice global-message">{infoMessage}</div>
+        )}
 
         <p>
-          {stage === "otp"
-            ? `We sent a 6-digit code to ${form.email}.`
-            : mode === "login"
-              ? "Continue your journey."
-              : "Join the community and take the challenge."}
+          {mode === "login"
+            ? "Continue your journey."
+            : "Join the community and take the challenge."}
         </p>
 
-        {stage === "credentials" ? (
-
-          <form onSubmit={submit} className="form-stack">
-
-            {mode === "register" && (
-              <label>
-                Account type
-                <select
-                  value={form.accountType}
-                  onChange={e => setForm({ ...form, accountType: e.target.value })}
-                >
-                  <option value="fan">Fan</option>
-                  <option value="influencer">Influencer</option>
-                </select>
-                <small>Influencer accounts require admin approval before challenge access.</small>
-              </label>
-            )}
-
-            {mode === "register" && (
-              <label>
-                {t("username")}
-
-                <input
-                  required
-                  minLength="2"
-                  maxLength="30"
-                  value={form.username}
-                  onChange={e =>
-                    setForm({
-                      ...form,
-                      username: e.target.value
-                    })
-                  }
-                />
-              </label>
-            )}
-
+        <form onSubmit={submit} className="form-stack">
+          {mode === "register" && (
             <label>
-              {t("email")}
-
-              <input
-                type="email"
-                required
-                value={form.email}
+              Account type
+              <select
+                value={form.accountType}
                 onChange={e =>
-                  setForm({
-                    ...form,
-                    email: e.target.value
-                  })
+                  setForm({ ...form, accountType: e.target.value })
                 }
+              >
+                <option value="fan">Fan</option>
+                <option value="influencer">Influencer</option>
+              </select>
+              <small>
+                Influencer accounts require admin approval before challenge access.
+              </small>
+            </label>
+          )}
+
+          {mode === "register" && (
+            <label>
+              {t("username")}
+              <input
+                required
+                minLength="2"
+                maxLength="30"
+                value={form.username}
+                onChange={e =>
+                  setForm({ ...form, username: e.target.value })
+                }
+                autoComplete="username"
               />
             </label>
+          )}
 
+          <label>
+            {t("email")}
+            <input
+              type="email"
+              required
+              value={form.email}
+              onChange={e =>
+                setForm({ ...form, email: e.target.value })
+              }
+              autoComplete="email"
+            />
+          </label>
+
+          <label>
+            {t("password")}
+            <div className="password-field">
+              <input
+                type={showPassword ? "text" : "password"}
+                minLength="8"
+                required
+                value={form.password}
+                onChange={e =>
+                  setForm({ ...form, password: e.target.value })
+                }
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+              />
+
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </label>
+
+          {mode === "register" && (
             <label>
-              {t("password")}
-
+              {t("confirmPassword")}
               <div className="password-field">
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showConfirmPassword ? "text" : "password"}
                   minLength="8"
                   required
-                  value={form.password}
+                  value={form.confirmPassword}
                   onChange={e =>
-                    setForm({
-                      ...form,
-                      password: e.target.value
-                    })
+                    setForm({ ...form, confirmPassword: e.target.value })
                   }
+                  autoComplete="new-password"
                 />
 
                 <button
                   type="button"
                   className="password-toggle"
                   onClick={() =>
-                    setShowPassword(!showPassword)
+                    setShowConfirmPassword(!showConfirmPassword)
                   }
                   aria-label={
-                    showPassword ? "Hide password" : "Show password"
+                    showConfirmPassword
+                      ? "Hide confirm password"
+                      : "Show confirm password"
                   }
                   title={
-                    showPassword ? "Hide password" : "Show password"
+                    showConfirmPassword
+                      ? "Hide password"
+                      : "Show password"
                   }
                 >
-                  {showPassword
+                  {showConfirmPassword
                     ? <EyeOff size={20} />
                     : <Eye size={20} />}
                 </button>
               </div>
             </label>
+          )}
 
-            {mode === "register" && (
-              <label>
-                {t("confirmPassword")}
+          {error && <div className="error-message">{error}</div>}
 
-                <div className="password-field">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    minLength="8"
-                    required
-                    value={form.confirmPassword}
-                    onChange={e =>
-                      setForm({
-                        ...form,
-                        confirmPassword: e.target.value
-                      })
-                    }
-                  />
-
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() =>
-                      setShowConfirmPassword(!showConfirmPassword)
-                    }
-                    aria-label={
-                      showConfirmPassword
-                        ? "Hide confirm password"
-                        : "Show confirm password"
-                    }
-                    title={
-                      showConfirmPassword
-                        ? "Hide password"
-                        : "Show password"
-                    }
-                  >
-                    {showConfirmPassword
-                      ? <EyeOff size={20} />
-                      : <Eye size={20} />}
-                  </button>
-                </div>
-              </label>
-            )}
-
-            {error && (
-              <div className="error-message">{error}</div>
-            )}
-
-            <button
-              disabled={busy}
-              className="button button-primary button-full"
-            >
-              {busy
-                ? "Please wait…"
-                : mode === "login"
-                  ? "Continue"
-                  : "Create account"}
-            </button>
-
-          </form>
-
-        ) : (
-
-          <form onSubmit={verify} className="form-stack">
-
-            <label>
-              6-digit OTP
-
-              <input
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength="6"
-                required
-                value={otp}
-                onChange={e =>
-                  setOtp(
-                    e.target.value.replace(/\D/g, "").slice(0, 6)
-                  )
-                }
-              />
-            </label>
-
-            {error && (
-              <div className="error-message">{error}</div>
-            )}
-
-            <button
-              disabled={busy || otp.length !== 6}
-              className="button button-primary button-full"
-            >
-              {busy ? "Verifying…" : "Verify & continue"}
-            </button>
-
-            <button
-              type="button"
-              className="button button-ghost button-full"
-              onClick={() => {
-                setStage("credentials");
-                setOtp("");
-                setError("");
-              }}
-            >
-              Back
-            </button>
-
-          </form>
-        )}
+          <button
+            disabled={busy}
+            className="button button-primary button-full"
+          >
+            {busy
+              ? "Please wait…"
+              : mode === "login"
+                ? "Continue"
+                : "Create account"}
+          </button>
+        </form>
 
         <p className="auth-switch">
           {mode === "login"
             ? "New to ActVerse?"
             : "Already have an account?"}
-
           {" "}
-
           <Link to={mode === "login" ? "/register" : "/login"}>
             {mode === "login" ? t("register") : t("login")}
           </Link>
         </p>
-
       </div>
     </div>
   );
 }
-
 
 function AcceptRules({ user, onUserUpdate }) {
   const { t } = useTranslation();

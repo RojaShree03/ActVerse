@@ -31,25 +31,5 @@ export const config = {
 
     // Rules configuration
     rulesVersion:
-        process.env.RULES_VERSION || "1.0",
-
-    // Gmail SMTP configuration
-    smtpHost:
-        process.env.SMTP_HOST || "smtp.gmail.com",
-
-    smtpPort:
-        Number(process.env.SMTP_PORT || 465),
-
-    smtpUser:
-        process.env.SMTP_USER || "",
-
-    smtpPass:
-        process.env.SMTP_PASS || "",
-
-    smtpSecure:
-        Number(process.env.SMTP_PORT || 465) === 465,
-
-    // OTP configuration
-    otpExpiryMinutes:
-        Number(process.env.OTP_EXPIRY_MINUTES || 10)
+        process.env.RULES_VERSION || "1.0"
 };
